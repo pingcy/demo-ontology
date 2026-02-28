@@ -1,0 +1,262 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology/"
+     xml:base="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology/"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:orders-manager-ontology="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#">
+    <owl:Ontology rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Object Properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#dependsOn -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#dependsOn">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Shipment"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#fulfills -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#fulfills">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Shipment"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasAllocation -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasAllocation">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasCustomer -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasCustomer">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Customer"/>
+        <rdfs:comment>订单由该客户下单</rdfs:comment>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Data properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#availableQty -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#availableQty">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#qcPassed -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#qcPassed">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#requiredQty -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#requiredQty">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Customer -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Customer"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#ExpediteEligibleOrder -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#ExpediteEligibleOrder">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#ReadyToShipOrder"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasCustomer"/>
+                        <owl:someValuesFrom rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#VIPCustomer"/>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#ReadyToShipOrder -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#ReadyToShipOrder">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#hasAllocation"/>
+                        <owl:someValuesFrom>
+                            <owl:Class>
+                                <owl:intersectionOf rdf:parseType="Collection">
+                                    <rdf:Description rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+                                    <owl:Restriction>
+                                        <owl:onProperty rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#qcPassed"/>
+                                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:hasValue>
+                                    </owl:Restriction>
+                                </owl:intersectionOf>
+                            </owl:Class>
+                        </owl:someValuesFrom>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+    </owl:Class>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Shipment -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Shipment"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#VIPCustomer -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#VIPCustomer">
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Customer"/>
+    </owl:Class>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Individuals
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1024 -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1024">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+        <orders-manager-ontology:availableQty rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">10</orders-manager-ontology:availableQty>
+        <orders-manager-ontology:qcPassed rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">false</orders-manager-ontology:qcPassed>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1025 -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1025">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#InventoryAllocation"/>
+        <orders-manager-ontology:availableQty rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">5</orders-manager-ontology:availableQty>
+        <orders-manager-ontology:qcPassed rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</orders-manager-ontology:qcPassed>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_normal -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_normal">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Customer"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_vip -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_vip">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#VIPCustomer"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#order_A1024 -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#order_A1024">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+        <orders-manager-ontology:hasAllocation rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1024"/>
+        <orders-manager-ontology:hasCustomer rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_normal"/>
+        <orders-manager-ontology:requiredQty rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">20</orders-manager-ontology:requiredQty>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#order_A1025 -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#order_A1025">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#Order"/>
+        <orders-manager-ontology:hasAllocation rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#alloc_for_A1025"/>
+        <orders-manager-ontology:hasCustomer rdf:resource="http://www.semanticweb.org/pingcy/ontologies/orders-manager-ontology#customer_vip"/>
+        <orders-manager-ontology:requiredQty rdf:datatype="http://www.w3.org/2001/XMLSchema#integer">5</orders-manager-ontology:requiredQty>
+    </owl:NamedIndividual>
+</rdf:RDF>
+
+
+
+<!-- Generated by the OWL API (version 4.5.29.2024-05-13T12:11:03Z) https://github.com/owlcs/owlapi -->
+

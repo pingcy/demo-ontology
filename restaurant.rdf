@@ -1,0 +1,353 @@
+<?xml version="1.0"?>
+<rdf:RDF xmlns="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology/"
+     xml:base="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology/"
+     xmlns:owl="http://www.w3.org/2002/07/owl#"
+     xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+     xmlns:xml="http://www.w3.org/XML/1998/namespace"
+     xmlns:xsd="http://www.w3.org/2001/XMLSchema#"
+     xmlns:rdfs="http://www.w3.org/2000/01/rdf-schema#"
+     xmlns:restaurant-ontology="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#">
+    <owl:Ontology rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Object Properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#contains -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#contains">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Ingredient"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#preparedBy -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#preparedBy">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Chef"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#rates -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#rates">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Review"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#serves -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#serves">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#specializesIn -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#specializesIn">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#worksAt -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#worksAt">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Chef"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#writtenBy -->
+
+    <owl:ObjectProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#writtenBy">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Review"/>
+        <rdfs:range rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Customer"/>
+    </owl:ObjectProperty>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Data properties
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasAddress -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasAddress">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasAveragePrice -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasAveragePrice">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasName -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasName">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasPhoneNumber -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasPhoneNumber">
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#string"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasPrice -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasPrice">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasRating -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasRating">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#decimal"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasSpiciness -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#hasSpiciness">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#integer"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#isAllergen -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#isAllergen">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Ingredient"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#isVegetarian -->
+
+    <owl:DatatypeProperty rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#isVegetarian">
+        <rdfs:domain rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <rdfs:range rdf:resource="http://www.w3.org/2001/XMLSchema#boolean"/>
+    </owl:DatatypeProperty>
+    
+
+
+    <!-- http://www.w3.org/2002/07/owl#topDataProperty -->
+
+    <owl:DatatypeProperty rdf:about="http://www.w3.org/2002/07/owl#topDataProperty"/>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Classes
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Chef -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Chef"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Customer -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Customer"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#IndianCuisine -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#IndianCuisine"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Ingredient -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Ingredient"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Review -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Review"/>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#VegetarianDish -->
+
+    <owl:Class rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#VegetarianDish">
+        <owl:equivalentClass>
+            <owl:Class>
+                <owl:intersectionOf rdf:parseType="Collection">
+                    <rdf:Description rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+                    <owl:Restriction>
+                        <owl:onProperty rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#isVegetarian"/>
+                        <owl:hasValue rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:hasValue>
+                    </owl:Restriction>
+                </owl:intersectionOf>
+            </owl:Class>
+        </owl:equivalentClass>
+        <rdfs:subClassOf rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+    </owl:Class>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Individuals
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#IndianCuisine -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#IndianCuisine">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#ItalianCuisine -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#ItalianCuisine">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#JapaneseCuisine -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#JapaneseCuisine">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MamasTrattoria -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MamasTrattoria">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Restaurant"/>
+        <restaurant-ontology:serves rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MargheritaPizza"/>
+        <restaurant-ontology:specializesIn rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#ItalianCuisine"/>
+        <restaurant-ontology:hasName>Mama&apos;s Trattoria</restaurant-ontology:hasName>
+        <restaurant-ontology:hasRating rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">4.5</restaurant-ontology:hasRating>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MargheritaPizza -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MargheritaPizza">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Dish"/>
+        <restaurant-ontology:preparedBy rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Yancanping"/>
+        <restaurant-ontology:hasName>Margherita Pizza</restaurant-ontology:hasName>
+        <restaurant-ontology:hasPrice rdf:datatype="http://www.w3.org/2001/XMLSchema#decimal">12.99</restaurant-ontology:hasPrice>
+        <restaurant-ontology:isVegetarian rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</restaurant-ontology:isVegetarian>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MexicanCuisine -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#MexicanCuisine">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#CuisineType"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Yancanping -->
+
+    <owl:NamedIndividual rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Yancanping">
+        <rdf:type rdf:resource="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#Chef"/>
+    </owl:NamedIndividual>
+    
+
+
+    <!-- 
+    ///////////////////////////////////////////////////////////////////////////////////////
+    //
+    // Annotations
+    //
+    ///////////////////////////////////////////////////////////////////////////////////////
+     -->
+
+    <rdf:Description rdf:about="http://www.semanticweb.org/pingcy/ontologies/2026/1/restaurant-ontology#IndianCuisine">
+        <owl:deprecated rdf:datatype="http://www.w3.org/2001/XMLSchema#boolean">true</owl:deprecated>
+    </rdf:Description>
+</rdf:RDF>
+
+
+
+<!-- Generated by the OWL API (version 4.5.29.2024-05-13T12:11:03Z) https://github.com/owlcs/owlapi -->
+
