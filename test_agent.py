@@ -1,15 +1,26 @@
 """本体增强的订单管理 Agent（CRM 集成版）
 ==========================================
-演示企业级场景：本体只定义业务规则 (TBox)，实例数据 (ABox) 从 CRM 系统获取，
-通过映射层注入本体后交由推理器分类。
+演示企业级场景：日常查询直接走 CRM 系统，仅在需要判定复杂业务规则时
+才将相关数据按需注入本体、调用推理器。
 
 架构:
-  CRM系统(模拟) → 数据映射层 → 本体TBox + 动态ABox → 推理器 → Agent Tools → LLM
+  ┌─────────────────────────────────────────────────┐
+  │  LLM Agent                                      │
+  │  ├─ CRM 工具（直接查询，不经过本体）               │
+  │  │   query_customer / list_orders / query_order  │
+  │  │   query_inventory                             │
+  │  └─ 本体推理工具（按需推理，仅用于业务规则判定）     │
+  │      check_shipment_eligibility                  │
+  │      check_expedite_eligibility                  │
+  │      get_business_rules                          │
+  └─────────────────────────────────────────────────┘
 
-核心价值:
-  - 本体只维护规则，不存储业务数据
-  - 数据从真实系统获取，通过映射层转化为本体个体
-  - 规则变更只需修改本体，数据源变更只需修改映射层
+核心设计:
+  - 本体不是数据仓库，而是规则引擎
+  - 简单查询直接走 CRM，不需要本体
+  - 只有判定"能否发货""能否加急"等规则时，才把那一笔订单的数据
+    临时注入本体、推理、返回结果
+  - 规则变更只改本体，数据源变更只改 CRM 层
 
 使用方式:
   export OPENAI_API_KEY=sk-...
@@ -21,27 +32,32 @@
 from __future__ import annotations
 
 import os
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 
 from owlready2 import ThingClass, destroy_entity, get_ontology, sync_reasoner
 
 
-# ── 模拟 CRM 数据源 ────────────────────────────────────────
-# 企业中这里对应的是数据库查询、REST API 调用等
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  模拟 CRM / ERP 数据源
+#  企业中这里对应的是数据库查询、REST API 调用等
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 @dataclass
 class CRMCustomer:
     customer_id: str
     name: str
-    tier: str  # "VIP", "STANDARD"
+    tier: str        # "VIP", "STANDARD"
+    contact: str     # 联系方式
+    region: str      # 所属区域
 
 
 @dataclass
 class CRMAllocation:
     allocation_id: str
     order_id: str
+    warehouse: str   # 仓库
     available_qty: int
     qc_passed: bool
 
@@ -51,7 +67,8 @@ class CRMOrder:
     order_id: str
     customer_id: str
     required_qty: int
-    status: str  # "pending", "processing", "shipped"
+    product: str     # 产品名称
+    status: str      # "pending", "processing", "shipped"
 
 
 class CRMSystem:
@@ -66,34 +83,31 @@ class CRMSystem:
 
     def _load_sample_data(self):
         """模拟从数据库加载的真实业务数据。"""
-        # ── 客户表 ──
         customers = [
-            CRMCustomer("C001", "张总集团", "VIP"),
-            CRMCustomer("C002", "李氏贸易", "STANDARD"),
-            CRMCustomer("C003", "王氏科技", "VIP"),
-            CRMCustomer("C004", "赵记商行", "STANDARD"),
+            CRMCustomer("C001", "张总集团", "VIP", "zhang@example.com", "华东"),
+            CRMCustomer("C002", "李氏贸易", "STANDARD", "li@example.com", "华南"),
+            CRMCustomer("C003", "王氏科技", "VIP", "wang@example.com", "华北"),
+            CRMCustomer("C004", "赵记商行", "STANDARD", "zhao@example.com", "西南"),
         ]
         for c in customers:
             self._customers[c.customer_id] = c
 
-        # ── 订单表 ──
         orders = [
-            CRMOrder("ORD-2024-001", "C001", 100, "processing"),  # VIP + 质检通过
-            CRMOrder("ORD-2024-002", "C002", 50, "processing"),   # 普通 + 质检未通过
-            CRMOrder("ORD-2024-003", "C003", 200, "pending"),     # VIP + 质检通过
-            CRMOrder("ORD-2024-004", "C004", 30, "processing"),   # 普通 + 质检通过
-            CRMOrder("ORD-2024-005", "C001", 80, "pending"),      # VIP + 质检未通过
+            CRMOrder("ORD-2024-001", "C001", 100, "精密轴承-A型", "processing"),
+            CRMOrder("ORD-2024-002", "C002", 50, "标准螺栓-M8", "processing"),
+            CRMOrder("ORD-2024-003", "C003", 200, "电子元件-IC芯片", "pending"),
+            CRMOrder("ORD-2024-004", "C004", 30, "标准螺栓-M10", "processing"),
+            CRMOrder("ORD-2024-005", "C001", 80, "液压阀门-B型", "pending"),
         ]
         for o in orders:
             self._orders[o.order_id] = o
 
-        # ── 库存分配表 ──
         allocations = [
-            CRMAllocation("ALLOC-001", "ORD-2024-001", 120, True),
-            CRMAllocation("ALLOC-002", "ORD-2024-002", 50, False),
-            CRMAllocation("ALLOC-003", "ORD-2024-003", 250, True),
-            CRMAllocation("ALLOC-004", "ORD-2024-004", 30, True),
-            CRMAllocation("ALLOC-005", "ORD-2024-005", 100, False),
+            CRMAllocation("ALLOC-001", "ORD-2024-001", "上海仓", 120, True),
+            CRMAllocation("ALLOC-002", "ORD-2024-002", "广州仓", 50, False),
+            CRMAllocation("ALLOC-003", "ORD-2024-003", "北京仓", 250, True),
+            CRMAllocation("ALLOC-004", "ORD-2024-004", "成都仓", 30, True),
+            CRMAllocation("ALLOC-005", "ORD-2024-005", "上海仓", 100, False),
         ]
         for a in allocations:
             self._allocations[a.allocation_id] = a
@@ -116,182 +130,112 @@ class CRMSystem:
         return [a for a in self._allocations.values() if a.order_id == order_id]
 
     def create_order(
-        self, customer_id: str, required_qty: int, available_qty: int, qc_passed: bool
+        self, customer_id: str, product: str, required_qty: int,
+        available_qty: int, warehouse: str, qc_passed: bool,
     ) -> CRMOrder:
         """模拟在 CRM 中创建新订单及其库存分配。"""
         seq = len(self._orders) + 1
-        order = CRMOrder(f"ORD-2024-{seq:03d}", customer_id, required_qty, "pending")
-        alloc = CRMAllocation(f"ALLOC-{seq:03d}", order.order_id, available_qty, qc_passed)
+        order = CRMOrder(f"ORD-2024-{seq:03d}", customer_id, required_qty, product, "pending")
+        alloc = CRMAllocation(
+            f"ALLOC-{seq:03d}", order.order_id, warehouse, available_qty, qc_passed
+        )
         self._orders[order.order_id] = order
         self._allocations[alloc.allocation_id] = alloc
         return order
 
 
-# ── CRM → 本体 映射层 ──────────────────────────────────────
-# 定义 CRM 字段如何转化为本体个体与属性
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  本体推理引擎 — 仅在需要判定业务规则时按需调用
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-class CRMToOntologyMapper:
-    """将 CRM 业务数据映射为本体 ABox 个体。
+class OntologyReasoner:
+    """按需将单笔订单数据注入本体 TBox，推理后返回业务分类结果。
 
-    映射规则:
-      CRM customers.tier="VIP"  → owl:VIPCustomer
-      CRM customers.tier!="VIP" → owl:Customer
-      CRM orders 行             → owl:Order + hasCustomer + requiredQty
-      CRM allocations 行        → owl:InventoryAllocation + availableQty + qcPassed
-      CRM order-allocation 关系 → owl:hasAllocation
+    设计原则:
+      - 本体只包含 TBox（类定义 + 规则），不预加载 ABox
+      - 每次推理前清空旧的 ABox，注入目标订单数据，推理，返回结果
+      - 本体是规则引擎，不是数据仓库
     """
 
-    def __init__(self, onto):
-        self.onto = onto
-
-    def _cls(self, name: str):
-        return self.onto.search_one(iri=f"*#{name}")
-
-    def map_customer(self, crm_cust: CRMCustomer):
-        """CRM 客户 → 本体 Customer/VIPCustomer 个体。"""
-        cls = self._cls("VIPCustomer") if crm_cust.tier == "VIP" else self._cls("Customer")
-        ind = cls(crm_cust.customer_id)
-        return ind
-
-    def map_allocation(self, crm_alloc: CRMAllocation):
-        """CRM 库存分配 → 本体 InventoryAllocation 个体。"""
-        alloc_cls = self._cls("InventoryAllocation")
-        ind = alloc_cls(crm_alloc.allocation_id)
-        ind.availableQty = [crm_alloc.available_qty]
-        ind.qcPassed = [crm_alloc.qc_passed]
-        return ind
-
-    def map_order(self, crm_order: CRMOrder, customer_ind, allocation_inds: list):
-        """CRM 订单 → 本体 Order 个体，关联客户与库存分配。"""
-        order_cls = self._cls("Order")
-        ind = order_cls(crm_order.order_id)
-        ind.hasCustomer = [customer_ind]
-        ind.hasAllocation = allocation_inds
-        ind.requiredQty = [crm_order.required_qty]
-        return ind
-
-
-# ── 本体管理层（TBox + 动态 ABox）──────────────────────────
-
-
-class OntologyManager:
-    """加载本体 TBox，从 CRM 获取数据并映射为 ABox，然后推理。"""
-
-    def __init__(self, ontology_path: str | Path, crm: CRMSystem):
+    def __init__(self, ontology_path: str | Path):
         path = Path(ontology_path)
         if not path.exists():
             raise FileNotFoundError(f"本体文件未找到: {path}")
-        self.onto = get_ontology(path.resolve().as_uri()).load()
-        self.crm = crm
-        self._reasoned = False
-        self._clear_abox()
-        self._sync_from_crm()
-
-    def _clear_abox(self):
-        """清除本体文件中的测试用 ABox 数据，只保留 TBox。"""
-        for ind in list(self.onto.individuals()):
+        self._ontology_uri = path.resolve().as_uri()
+        # 加载一次并清理掉文件中的测试 ABox
+        onto = get_ontology(self._ontology_uri).load()
+        for ind in list(onto.individuals()):
             destroy_entity(ind)
-
-    def _sync_from_crm(self):
-        """从 CRM 拉取全量数据并映射为本体个体。"""
-        mapper = CRMToOntologyMapper(self.onto)
-
-        # 1. 映射客户
-        customer_map: dict[str, object] = {}
-        for crm_cust in self.crm.get_all_customers():
-            customer_map[crm_cust.customer_id] = mapper.map_customer(crm_cust)
-
-        # 2. 映射订单及其库存分配
-        for crm_order in self.crm.get_all_orders():
-            cust_ind = customer_map.get(crm_order.customer_id)
-            alloc_inds = [
-                mapper.map_allocation(a)
-                for a in self.crm.get_allocations_for_order(crm_order.order_id)
-            ]
-            mapper.map_order(crm_order, cust_ind, alloc_inds)
-
-        self.invalidate()
-
-    def ensure_reasoned(self):
-        if not self._reasoned:
-            with self.onto:
-                sync_reasoner(infer_property_values=True, debug=0)
-            self._reasoned = True
-
-    def invalidate(self):
-        self._reasoned = False
-
-    def refresh_from_crm(self):
-        """重新从 CRM 同步数据（模拟数据变更场景）。"""
-        self._clear_abox()
-        self._sync_from_crm()
-
-    # ── 内部工具 ──
+        self._base_onto = onto
 
     def _cls(self, name: str):
-        return self.onto.search_one(iri=f"*#{name}")
+        return self._base_onto.search_one(iri=f"*#{name}")
 
-    def _class_names(self, entity) -> list[str]:
-        return sorted({c.name for c in entity.is_a if isinstance(c, ThingClass)})
+    def _clear_abox(self):
+        for ind in list(self._base_onto.individuals()):
+            destroy_entity(ind)
 
-    def _order_info(self, order) -> dict:
+    def reason_order(
+        self,
+        customer_tier: str,
+        customer_id: str,
+        order_id: str,
+        required_qty: int,
+        allocations: list[dict],
+    ) -> dict:
+        """将一笔订单的相关数据注入本体、推理、返回结论。
+
+        参数:
+          customer_tier: "VIP" 或 "STANDARD"
+          customer_id: 客户标识
+          order_id: 订单标识
+          required_qty: 需求数量
+          allocations: [{"id": ..., "available_qty": ..., "qc_passed": ...}, ...]
+
+        返回:
+          {"ready_to_ship": bool, "expedite_eligible": bool, "inferred_types": [...]}
+        """
+        onto = self._base_onto
+        self._clear_abox()
+
+        # 注入客户个体
+        cust_cls = self._cls("VIPCustomer") if customer_tier == "VIP" else self._cls("Customer")
+        cust_ind = cust_cls(customer_id)
+
+        # 注入库存分配个体
+        alloc_cls = self._cls("InventoryAllocation")
+        alloc_inds = []
+        for a in allocations:
+            alloc_ind = alloc_cls(a["id"])
+            alloc_ind.availableQty = [a["available_qty"]]
+            alloc_ind.qcPassed = [a["qc_passed"]]
+            alloc_inds.append(alloc_ind)
+
+        # 注入订单个体
+        order_cls = self._cls("Order")
+        order_ind = order_cls(order_id)
+        order_ind.hasCustomer = [cust_ind]
+        order_ind.hasAllocation = alloc_inds
+        order_ind.requiredQty = [required_qty]
+
+        # 推理
+        with onto:
+            sync_reasoner(infer_property_values=True, debug=0)
+
         ready_cls = self._cls("ReadyToShipOrder")
         expedite_cls = self._cls("ExpediteEligibleOrder")
-        crm_order = self.crm.get_order(order.name)
-        info = {
-            "订单ID": order.name,
-            "CRM状态": crm_order.status if crm_order else "N/A",
-            "推理后类型": self._class_names(order),
-            "需求数量": order.requiredQty[0] if order.requiredQty else None,
+        inferred = sorted({
+            c.name for c in order_ind.is_a if isinstance(c, ThingClass)
+        })
+
+        return {
+            "ready_to_ship": order_ind in ready_cls.instances(),
+            "expedite_eligible": order_ind in expedite_cls.instances(),
+            "inferred_types": inferred,
         }
-        if order.hasCustomer:
-            cust = order.hasCustomer[0]
-            crm_cust = self.crm.get_customer(cust.name)
-            info["客户"] = crm_cust.name if crm_cust else cust.name
-            info["客户ID"] = cust.name
-            info["客户等级"] = crm_cust.tier if crm_cust else "N/A"
-            info["客户本体类型"] = self._class_names(cust)
-        if order.hasAllocation:
-            alloc = order.hasAllocation[0]
-            info["库存分配"] = {
-                "ID": alloc.name,
-                "可用数量": alloc.availableQty[0] if alloc.availableQty else None,
-                "质检通过": alloc.qcPassed[0] if alloc.qcPassed else None,
-            }
-        info["满足发货条件"] = order in ready_cls.instances()
-        info["可加急发货"] = order in expedite_cls.instances()
-        return info
 
-    # ── 对外 API ──
-
-    def list_orders(self) -> list[dict]:
-        self.ensure_reasoned()
-        order_cls = self._cls("Order")
-        return [self._order_info(o) for o in order_cls.instances()]
-
-    def get_order(self, order_id: str) -> dict | None:
-        self.ensure_reasoned()
-        order = self.onto.search_one(iri=f"*#{order_id}")
-        if order is None:
-            return None
-        return self._order_info(order)
-
-    def create_order(
-        self,
-        customer_id: str,
-        required_qty: int,
-        available_qty: int,
-        qc_passed: bool,
-    ) -> dict:
-        # 1. 先在 CRM 中创建
-        crm_order = self.crm.create_order(customer_id, required_qty, available_qty, qc_passed)
-        # 2. 重新同步到本体
-        self.refresh_from_crm()
-        # 3. 推理并返回
-        return self.get_order(crm_order.order_id)
-
-    def get_business_rules(self) -> str:
+    def get_rules_description(self) -> str:
         return (
             "本体定义的业务规则（TBox）：\n"
             "1. ReadyToShipOrder（满足发货条件的订单）：\n"
@@ -302,134 +246,206 @@ class OntologyManager:
             "   → 满足发货条件 + VIP客户 → 自动获得加急资格\n\n"
             "3. VIPCustomer 是 Customer 的子类\n\n"
             "这些规则由本体形式化定义，推理器自动完成分类。\n"
-            "ABox 数据从 CRM 系统实时获取，通过映射层注入本体。"
-        )
-
-    def get_data_mapping_info(self) -> str:
-        return (
-            "CRM → 本体 数据映射规则：\n"
-            "  CRM customers.tier='VIP'   → 本体 VIPCustomer 个体\n"
-            "  CRM customers.tier='STANDARD' → 本体 Customer 个体\n"
-            "  CRM orders 行              → 本体 Order 个体\n"
-            "    order.customer_id         → 本体 hasCustomer 关系\n"
-            "    order.required_qty        → 本体 requiredQty 属性\n"
-            "  CRM allocations 行         → 本体 InventoryAllocation 个体\n"
-            "    allocation.available_qty  → 本体 availableQty 属性\n"
-            "    allocation.qc_passed      → 本体 qcPassed 属性\n"
-            "    allocation.order_id       → 本体 hasAllocation 关系"
+            "Agent 仅在需要判定这些规则时才调用本体推理，日常查询直接走 CRM。"
         )
 
 
-# ── LangChain Agent ────────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  辅助函数：从 CRM 收集推理所需数据
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-def build_agent(onto_mgr: OntologyManager):
+def _collect_order_for_reasoning(crm: CRMSystem, order_id: str) -> dict | None:
+    """从 CRM 收集一笔订单的全部关联数据，组装为推理器入参。"""
+    crm_order = crm.get_order(order_id)
+    if crm_order is None:
+        return None
+    crm_cust = crm.get_customer(crm_order.customer_id)
+    if crm_cust is None:
+        return None
+    crm_allocs = crm.get_allocations_for_order(order_id)
+    return {
+        "customer_tier": crm_cust.tier,
+        "customer_id": crm_cust.customer_id,
+        "order_id": crm_order.order_id,
+        "required_qty": crm_order.required_qty,
+        "allocations": [
+            {"id": a.allocation_id, "available_qty": a.available_qty, "qc_passed": a.qc_passed}
+            for a in crm_allocs
+        ],
+    }
+
+
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  LangChain Agent
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+def build_agent(crm: CRMSystem, reasoner: OntologyReasoner):
     from langchain_core.tools import tool
     from langchain_openai import ChatOpenAI
     from langchain.agents import create_agent
 
+    # ── CRM 直接查询工具（不经过本体）──
+
+    @tool
+    def query_customer(customer_id: str) -> str:
+        """查询客户信息。直接从CRM系统获取，不经过本体。
+        参数 customer_id: 客户ID，如 C001"""
+        c = crm.get_customer(customer_id)
+        if c is None:
+            return f"未找到客户 {customer_id}"
+        return (
+            f"客户信息（来自CRM）：\n"
+            f"  客户ID: {c.customer_id}\n"
+            f"  名称: {c.name}\n"
+            f"  等级: {c.tier}\n"
+            f"  联系方式: {c.contact}\n"
+            f"  区域: {c.region}"
+        )
+
     @tool
     def list_orders() -> str:
-        """列出系统中所有订单及其推理后的业务分类。数据来源于CRM系统。"""
-        orders = onto_mgr.list_orders()
+        """列出所有订单。直接从CRM系统获取，不经过本体。"""
+        orders = crm.get_all_orders()
         if not orders:
-            return "系统中暂无订单。"
+            return "暂无订单。"
         lines = []
         for o in orders:
+            c = crm.get_customer(o.customer_id)
             lines.append(
-                f"- {o['订单ID']} (CRM状态:{o['CRM状态']}, 客户:{o.get('客户','N/A')}): "
-                f"发货条件={'✅' if o['满足发货条件'] else '❌'}, "
-                f"可加急={'✅' if o['可加急发货'] else '❌'}"
+                f"- {o.order_id} | {o.product} | 客户:{c.name if c else o.customer_id} | "
+                f"数量:{o.required_qty} | 状态:{o.status}"
+            )
+        return "订单列表（来自CRM）：\n" + "\n".join(lines)
+
+    @tool
+    def query_order(order_id: str) -> str:
+        """查询某个订单的详细信息。直接从CRM系统获取，不经过本体。
+        参数 order_id: 订单ID，如 ORD-2024-001"""
+        o = crm.get_order(order_id)
+        if o is None:
+            return f"未找到订单 {order_id}"
+        c = crm.get_customer(o.customer_id)
+        return (
+            f"订单信息（来自CRM）：\n"
+            f"  订单ID: {o.order_id}\n"
+            f"  产品: {o.product}\n"
+            f"  客户: {c.name if c else o.customer_id} ({c.tier if c else 'N/A'})\n"
+            f"  需求数量: {o.required_qty}\n"
+            f"  状态: {o.status}"
+        )
+
+    @tool
+    def query_inventory(order_id: str) -> str:
+        """查询某个订单的库存分配情况。直接从库存系统获取，不经过本体。
+        参数 order_id: 订单ID，如 ORD-2024-001"""
+        allocs = crm.get_allocations_for_order(order_id)
+        if not allocs:
+            return f"订单 {order_id} 暂无库存分配记录。"
+        lines = [f"库存分配信息（来自库存系统）- 订单 {order_id}："]
+        for a in allocs:
+            lines.append(
+                f"  分配ID: {a.allocation_id} | 仓库: {a.warehouse} | "
+                f"可用数量: {a.available_qty} | 质检: {'通过' if a.qc_passed else '未通过'}"
             )
         return "\n".join(lines)
 
+    # ── 本体推理工具（仅在需要判定业务规则时调用）──
+
     @tool
-    def get_order_detail(order_id: str) -> str:
-        """查询指定订单的详细信息（CRM原始数据+本体推理结果）。
-        参数 order_id: CRM订单ID，如 ORD-2024-001"""
-        info = onto_mgr.get_order(order_id)
-        if info is None:
-            return f"未找到订单 {order_id}（请使用CRM订单ID，如 ORD-2024-001）"
-        lines = [f"订单详情 - {info['订单ID']}:"]
-        for k, v in info.items():
-            if isinstance(v, dict):
-                lines.append(f"  {k}:")
-                for sk, sv in v.items():
-                    lines.append(f"    {sk}: {sv}")
-            else:
-                lines.append(f"  {k}: {v}")
+    def check_shipment_eligibility(order_id: str) -> str:
+        """【需要本体推理】判定订单是否满足发货条件（ReadyToShipOrder）。
+        这个工具会从CRM获取订单数据，注入本体推理器，基于本体规则判定。
+        仅在需要判定"能否发货"时调用，普通查询请用其他CRM工具。
+        参数 order_id: 订单ID，如 ORD-2024-001"""
+        data = _collect_order_for_reasoning(crm, order_id)
+        if data is None:
+            return f"未找到订单 {order_id} 或其关联数据"
+        result = reasoner.reason_order(**data)
+        o = crm.get_order(order_id)
+        c = crm.get_customer(o.customer_id) if o else None
+        allocs = crm.get_allocations_for_order(order_id)
+        qc_info = ", ".join(
+            f"{a.allocation_id}({'通过' if a.qc_passed else '未通过'})"
+            for a in allocs
+        )
+        return (
+            f"发货条件判定结果（数据来自CRM，规则来自本体推理）：\n"
+            f"  订单: {order_id} ({o.product if o else 'N/A'})\n"
+            f"  客户: {c.name if c else 'N/A'} (等级:{c.tier if c else 'N/A'})\n"
+            f"  库存质检: {qc_info}\n"
+            f"  推理结论: {'✅ 满足发货条件' if result['ready_to_ship'] else '❌ 不满足发货条件'}\n"
+            f"  判定依据: 本体规则 ReadyToShipOrder = Order ∩ hasAllocation some (qcPassed=true)"
+        )
+
+    @tool
+    def check_expedite_eligibility(order_id: str) -> str:
+        """【需要本体推理】判定订单是否可加急发货（ExpediteEligibleOrder）。
+        这个工具会从CRM获取订单数据，注入本体推理器，基于本体规则判定。
+        仅在需要判定"能否加急"时调用，普通查询请用其他CRM工具。
+        参数 order_id: 订单ID，如 ORD-2024-001"""
+        data = _collect_order_for_reasoning(crm, order_id)
+        if data is None:
+            return f"未找到订单 {order_id} 或其关联数据"
+        result = reasoner.reason_order(**data)
+        o = crm.get_order(order_id)
+        c = crm.get_customer(o.customer_id) if o else None
+        allocs = crm.get_allocations_for_order(order_id)
+        qc_info = ", ".join(
+            f"{a.allocation_id}({'通过' if a.qc_passed else '未通过'})"
+            for a in allocs
+        )
+        lines = [
+            f"加急发货判定结果（数据来自CRM，规则来自本体推理）：",
+            f"  订单: {order_id} ({o.product if o else 'N/A'})",
+            f"  客户: {c.name if c else 'N/A'} (等级:{c.tier if c else 'N/A'})",
+            f"  库存质检: {qc_info}",
+            f"  满足发货条件: {'是' if result['ready_to_ship'] else '否'}",
+            f"  可加急发货: {'✅ 是' if result['expedite_eligible'] else '❌ 否'}",
+        ]
+        if not result['ready_to_ship']:
+            lines.append("  原因: 库存未通过质检，不满足基本发货条件，因此也无法加急")
+        elif not result['expedite_eligible']:
+            lines.append("  原因: 满足发货条件，但客户不是VIP等级，不符合加急资格")
+        else:
+            lines.append("  原因: 满足发货条件 + VIP客户，符合加急资格")
+        lines.append(
+            "  判定依据: 本体规则 ExpediteEligibleOrder = ReadyToShipOrder ∩ hasCustomer some VIPCustomer"
+        )
         return "\n".join(lines)
 
     @tool
-    def check_order_eligibility(order_id: str) -> str:
-        """通过本体推理器判定订单是否满足发货条件、是否可加急。
-        数据从CRM获取，规则由本体定义，判定由推理器完成。
-        参数 order_id: CRM订单ID，如 ORD-2024-001"""
-        info = onto_mgr.get_order(order_id)
-        if info is None:
-            return f"未找到订单 {order_id}"
-        return (
-            f"订单 {info['订单ID']} 的推理结果（数据来自CRM，规则来自本体）：\n"
-            f"  客户: {info.get('客户','N/A')} (等级:{info.get('客户等级','N/A')})\n"
-            f"  推理后类型: {info['推理后类型']}\n"
-            f"  满足发货条件 (ReadyToShipOrder): {'是' if info['满足发货条件'] else '否'}\n"
-            f"  可加急发货 (ExpediteEligibleOrder): {'是' if info['可加急发货'] else '否'}"
-        )
-
-    @tool
-    def create_new_order(
-        customer_id: str,
-        required_qty: int,
-        available_qty: int,
-        qc_passed: bool,
-    ) -> str:
-        """在CRM中创建新订单，自动同步到本体并推理分类。
-        参数:
-          customer_id: CRM客户ID，如 C001, C002, C003, C004
-          required_qty: 需求数量
-          available_qty: 库存可用数量
-          qc_passed: 质检是否通过"""
-        info = onto_mgr.create_order(
-            customer_id, required_qty, available_qty, qc_passed
-        )
-        if info is None:
-            return "创建失败"
-        return (
-            f"新订单已在CRM创建并完成本体推理分类：\n"
-            f"  订单ID: {info['订单ID']}\n"
-            f"  客户: {info.get('客户','N/A')} (等级:{info.get('客户等级','N/A')})\n"
-            f"  推理后类型: {info['推理后类型']}\n"
-            f"  满足发货条件: {'是' if info['满足发货条件'] else '否'}\n"
-            f"  可加急发货: {'是' if info['可加急发货'] else '否'}"
-        )
-
-    @tool
     def get_business_rules() -> str:
-        """查看本体中定义的业务规则（TBox）和CRM数据映射规则"""
-        return onto_mgr.get_business_rules() + "\n\n" + onto_mgr.get_data_mapping_info()
+        """查看本体中定义的业务规则（TBox），了解发货条件和加急资格的判定逻辑"""
+        return reasoner.get_rules_description()
 
     tools = [
+        # CRM 直接查询（不经过本体）
+        query_customer,
         list_orders,
-        get_order_detail,
-        check_order_eligibility,
-        create_new_order,
+        query_order,
+        query_inventory,
+        # 本体推理（仅在判定业务规则时）
+        check_shipment_eligibility,
+        check_expedite_eligibility,
         get_business_rules,
     ]
 
     system_prompt = (
-        "你是一个订单管理助手，背后接入了 CRM 系统和基于 OWL 本体的业务推理引擎。\n\n"
-        "架构说明：\n"
-        "- 订单/客户/库存数据从 CRM 系统获取\n"
-        "- 业务规则（发货条件、加急资格）由本体 TBox 定义\n"
-        "- 数据通过映射层注入本体后，由推理器自动分类\n\n"
-        "你的能力：\n"
-        "- 查询CRM中的订单信息及本体推理后的业务分类\n"
-        "- 在CRM中创建新订单，自动触发本体推理\n"
-        "- 解释业务规则和数据映射关系\n\n"
-        "系统中的客户：C001(张总集团/VIP), C002(李氏贸易/普通), C003(王氏科技/VIP), C004(赵记商行/普通)\n\n"
-        "重要原则：\n"
-        "- 所有业务判定必须通过工具调用本体推理器获得，不要自行猜测\n"
-        "- 向用户说明数据来自CRM、规则来自本体\n"
+        "你是一个订单管理助手，背后接入了 CRM/ERP 系统和基于 OWL 本体的业务推理引擎。\n\n"
+        "##重要：工具选择原则\n"
+        "- 日常查询（客户信息、订单列表、库存情况）→ 直接用 CRM 工具，不需要本体\n"
+        "- 业务规则判定（能否发货、能否加急）→ 使用本体推理工具\n"
+        "- 本体是规则引擎，不是数据仓库。不要为了简单查询而调用推理工具\n\n"
+        "##工具分类\n"
+        "CRM直接查询: query_customer, list_orders, query_order, query_inventory\n"
+        "本体推理判定: check_shipment_eligibility, check_expedite_eligibility, get_business_rules\n\n"
+        "##系统客户\n"
+        "C001(张总集团/VIP), C002(李氏贸易/普通), C003(王氏科技/VIP), C004(赵记商行/普通)\n\n"
+        "##回答原则\n"
+        "- 说明数据来源（CRM直接查询 还是 本体推理判定）\n"
+        "- 推理结果要说明判定依据（来自本体规则）\n"
         "- 用简洁清晰的中文回答"
     )
 
@@ -437,90 +453,96 @@ def build_agent(onto_mgr: OntologyManager):
     return create_agent(llm, tools, system_prompt=system_prompt)
 
 
-# ── 离线演示模式 ───────────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  离线演示模式
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
-def _demo_mode(onto_mgr: OntologyManager):
-    """无 LLM 时直接展示 CRM→本体→推理 的完整流程。"""
-    print("=" * 60)
-    print("  离线演示：CRM → 本体映射 → 推理器分类")
-    print("=" * 60)
+def _demo_mode(crm: CRMSystem, reasoner: OntologyReasoner):
+    """无 LLM 时展示 CRM 直接查询与本体按需推理的区别。"""
+    print("=" * 64)
+    print("  离线演示：CRM 直接查询 vs 本体按需推理")
+    print("=" * 64)
 
-    print("\n📋 业务规则（本体 TBox）:")
-    print(onto_mgr.get_business_rules())
+    # ── 1. CRM 直接查询（不经过本体）──
+    print("\n┌─────────────────────────────────────────────┐")
+    print("│  CRM 直接查询（不经过本体）                    │")
+    print("└─────────────────────────────────────────────┘")
 
-    print("\n🔗 数据映射规则:")
-    print(onto_mgr.get_data_mapping_info())
+    print("\n📊 查客户 C001:")
+    c = crm.get_customer("C001")
+    print(f"  {c.name} | 等级:{c.tier} | 区域:{c.region} | 联系:{c.contact}")
 
-    print("\n📊 CRM 客户数据:")
-    for c in onto_mgr.crm.get_all_customers():
-        print(f"  {c.customer_id}: {c.name} (等级: {c.tier})")
+    print("\n📦 查所有订单:")
+    for o in crm.get_all_orders():
+        cust = crm.get_customer(o.customer_id)
+        print(f"  {o.order_id} | {o.product} | 客户:{cust.name} | 数量:{o.required_qty} | 状态:{o.status}")
 
-    print("\n📦 CRM 订单 → 本体推理结果:")
-    for o in onto_mgr.list_orders():
-        alloc = o.get("库存分配", {})
+    print("\n📦 查订单 ORD-2024-001 的库存:")
+    for a in crm.get_allocations_for_order("ORD-2024-001"):
+        print(f"  {a.allocation_id} | 仓库:{a.warehouse} | 可用:{a.available_qty} | 质检:{'通过' if a.qc_passed else '未通过'}")
+
+    # ── 2. 本体按需推理（仅在判定业务规则时）──
+    print("\n┌─────────────────────────────────────────────┐")
+    print("│  本体按需推理（仅在判定业务规则时）              │")
+    print("└─────────────────────────────────────────────┘")
+
+    print("\n📋 本体业务规则:")
+    print(reasoner.get_rules_description())
+
+    test_orders = ["ORD-2024-001", "ORD-2024-002", "ORD-2024-003", "ORD-2024-004", "ORD-2024-005"]
+    print("🔍 对每笔订单按需推理（从CRM取数据 → 注入本体 → 推理）:")
+    for oid in test_orders:
+        data = _collect_order_for_reasoning(crm, oid)
+        result = reasoner.reason_order(**data)
+        o = crm.get_order(oid)
+        c = crm.get_customer(o.customer_id)
+        allocs = crm.get_allocations_for_order(oid)
+        qc = "通过" if allocs and allocs[0].qc_passed else "未通过"
         print(
-            f"  {o['订单ID']} | 客户:{o.get('客户','N/A')}({o.get('客户等级','')}) | "
-            f"CRM状态:{o['CRM状态']} | "
-            f"质检:{'✅' if alloc.get('质检通过') else '❌'} | "
-            f"发货:{'✅' if o['满足发货条件'] else '❌'} | "
-            f"加急:{'✅' if o['可加急发货'] else '❌'}"
+            f"  {oid} | {o.product} | {c.name}({c.tier}) | 质检:{qc} | "
+            f"发货:{'✅' if result['ready_to_ship'] else '❌'} | "
+            f"加急:{'✅' if result['expedite_eligible'] else '❌'}"
         )
 
-    print("\n➕ 模拟在CRM创建新订单 (客户C001/VIP, 数量50, 库存60, 质检通过):")
-    r = onto_mgr.create_order("C001", 50, 60, True)
-    print(
-        f"  {r['订单ID']} | 客户:{r.get('客户','N/A')}({r.get('客户等级','')}) | "
-        f"发货:{'✅' if r['满足发货条件'] else '❌'} | "
-        f"加急:{'✅' if r['可加急发货'] else '❌'}"
-    )
-
-    print("\n➕ 模拟在CRM创建新订单 (客户C002/普通, 数量30, 库存40, 质检未通过):")
-    r2 = onto_mgr.create_order("C002", 30, 40, False)
-    print(
-        f"  {r2['订单ID']} | 客户:{r2.get('客户','N/A')}({r2.get('客户等级','')}) | "
-        f"发货:{'✅' if r2['满足发货条件'] else '❌'} | "
-        f"加急:{'✅' if r2['可加急发货'] else '❌'}"
-    )
-
-    print("\n" + "=" * 60)
-    print("💡 架构价值:")
-    print("  - 本体只定义规则 (TBox)，不存储业务数据")
-    print("  - 数据从 CRM 系统获取，通过映射层注入本体")
-    print("  - 推理器基于规则自动分类，与数据来源解耦")
-    print("  - 规则变更改本体，数据源变更改映射层")
-    print("=" * 60)
+    print("\n" + "=" * 64)
+    print("💡 关键区别:")
+    print("  - 查客户/查订单/查库存 → 直接走CRM，不需要本体")
+    print("  - 判定能否发货/能否加急 → 按需调用本体推理器")
+    print("  - 本体是规则引擎，不是数据仓库")
+    print("=" * 64)
 
 
-# ── 主入口 ─────────────────────────────────────────────────
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+#  主入口
+# ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 
 def main():
     ontology_path = Path(__file__).with_name("demo-ontology.owx")
 
-    # 初始化模拟 CRM 系统
     crm = CRMSystem()
-    print("✅ CRM 系统已初始化（模拟），加载了",
-          f"{len(crm.get_all_customers())}个客户, {len(crm.get_all_orders())}个订单")
+    print(f"✅ CRM 系统已初始化，{len(crm.get_all_customers())}个客户, {len(crm.get_all_orders())}个订单")
 
-    # 加载本体 TBox，从 CRM 映射数据到 ABox
-    onto_mgr = OntologyManager(ontology_path, crm)
-    print("✅ 本体 TBox 已加载，CRM 数据已映射为 ABox 个体\n")
+    reasoner = OntologyReasoner(ontology_path)
+    print("✅ 本体推理引擎已加载（仅 TBox，ABox 按需注入）\n")
 
     if not os.environ.get("OPENAI_API_KEY"):
         print("未设置 OPENAI_API_KEY，进入离线演示模式\n")
-        _demo_mode(onto_mgr)
+        _demo_mode(crm, reasoner)
         return
 
-    agent = build_agent(onto_mgr)
+    agent = build_agent(crm, reasoner)
 
     print("=== 本体增强订单管理 Agent（CRM 集成版）===")
     print("输入问题与 Agent 对话，输入 q 退出\n")
     print("示例问题:")
-    print("  - 系统里有哪些订单？哪些可以加急？")
-    print("  - ORD-2024-001 能不能加急发货？为什么？")
-    print("  - 帮客户C003创建一个新订单，数量100，库存120，质检已通过")
-    print("  - 解释一下业务规则和数据映射关系")
+    print("  - 查一下客户 C001 的信息")
+    print("  - 系统里有哪些订单？")
+    print("  - ORD-2024-001 的库存情况怎样？")
+    print("  - ORD-2024-001 能不能加急发货？（这个会调用本体推理）")
+    print("  - 哪些订单可以发货？（会逐个调用本体推理）")
+    print("  - 解释一下发货和加急的判定规则")
     print()
 
     history = []
